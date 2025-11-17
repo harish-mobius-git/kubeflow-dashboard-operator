@@ -11,6 +11,18 @@ from charmed_kubeflow_chisme.exceptions import GenericCharmRuntimeError
 from charmed_kubeflow_chisme.kubernetes import KubernetesResourceHandler
 from charmed_kubeflow_chisme.lightkube.batch import delete_many
 from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
+from charms.istio_beacon_k8s.v0.service_mesh import ServiceMeshConsumer
+from charms.istio_ingress_k8s.v0.istio_ingress_route import (
+    BackendRef,
+    HTTPPathMatch,
+    HTTPPathMatchType,
+    HTTPRoute,
+    HTTPRouteMatch,
+    IstioIngressRouteConfig,
+    IstioIngressRouteRequirer,
+    Listener,
+    ProtocolType,
+)
 from charms.kubeflow_dashboard.v0.kubeflow_dashboard_links import (
     DASHBOARD_LINK_LOCATIONS,
     KubeflowDashboardLinksProvider,
@@ -97,6 +109,11 @@ class KubeflowDashboardOperator(CharmBase):
         port = ServicePort(int(self._port), name=f"{self.app.name}")
         self.service_patcher = KubernetesServicePatch(self, [port])
 
+        # Ambient Mesh integration
+        self._mesh = ServiceMeshConsumer(self, policies=[])
+        self.ingress = IstioIngressRouteRequirer(self, relation_name="istio-ingress-route")
+        self._ambient_mesh_ingress()
+
         for event in [
             self.on.install,
             self.on.leader_elected,
@@ -104,6 +121,7 @@ class KubeflowDashboardOperator(CharmBase):
             self.on.config_changed,
             self.on["kubeflow-profiles"].relation_changed,
             self.on["ingress"].relation_changed,
+            self.ingress.on.ready,
             self.on.kubeflow_dashboard_pebble_ready,
         ]:
             self.framework.observe(event, self.main)
@@ -255,6 +273,29 @@ class KubeflowDashboardOperator(CharmBase):
                     "namespace": self._namespace,
                 }
             )
+
+    def _ambient_mesh_ingress(self):
+        # ambient mesh
+        http_listener = Listener(port=80, protocol=ProtocolType.HTTP)
+
+        config = IstioIngressRouteConfig(
+            model=self.model.name,
+            listeners=[http_listener],
+            http_routes=[
+                HTTPRoute(
+                    name="http-ingress",
+                    listener=http_listener,
+                    matches=[
+                        HTTPRouteMatch(
+                            path=HTTPPathMatch(type=HTTPPathMatchType.PathPrefix, value="/")
+                        )
+                    ],
+                    backends=[BackendRef(service=self.app.name, port=self._port)],
+                )
+            ],
+        )
+
+        self.ingress.submit_config(config)
 
     def _check_kf_profiles(self, interfaces):
         kf_profiles = interfaces["kubeflow-profiles"]

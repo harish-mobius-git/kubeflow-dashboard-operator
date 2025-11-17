@@ -83,6 +83,7 @@ def harness() -> Harness:
     harness = Harness(KubeflowDashboardOperator)
     # Remove when this bug is resolved: https://github.com/kubeflow/kubeflow/issues/6136
     harness.set_model_name("kubeflow")
+    harness.set_leader(True)
     yield harness
     harness.cleanup()
 
@@ -111,15 +112,7 @@ class TestCharm:
             mock_logging.assert_called_once_with(charm=harness.charm)
 
     @patch("charm.KubernetesServicePatch", lambda x, y: None)
-    def test_check_leader_failure(self, harness: Harness):
-        harness.begin_with_initial_hooks()
-        assert harness.charm.model.unit.status == WaitingStatus("Waiting for leadership")
-        harness.set_leader(True)
-        assert harness.charm.model.unit.status != WaitingStatus("Waiting for leadership")
-
-    @patch("charm.KubernetesServicePatch", lambda x, y: None)
     def test_check_leader_success(self, harness: Harness):
-        harness.set_leader(True)
         harness.begin_with_initial_hooks()
         assert harness.charm.model.unit.status != WaitingStatus("Waiting for leadership")
 
@@ -128,6 +121,8 @@ class TestCharm:
         # Tests that unit will BlockStatus if deployed outside a model named kubeflow
         # Remove when this bug is resolved: https://github.com/kubeflow/kubeflow/issues/6136
         harness = Harness(KubeflowDashboardOperator)
+        harness.set_model_name("notkubeflow")
+        harness.set_leader(True)
         harness.begin_with_initial_hooks()
         assert harness.charm.model.unit.status == BlockedStatus(
             "kubeflow-dashboard must be deployed to model named `kubeflow`:"
@@ -136,6 +131,8 @@ class TestCharm:
 
     @patch("charm.KubernetesServicePatch", lambda x, y: None)
     def test_check_model_name_success(self, harness: Harness):
+        harness.set_model_name("kubeflow")
+        harness.set_leader(True)
         harness.begin_with_initial_hooks()
         assert harness.charm.model.unit.status != BlockedStatus(
             "kubeflow-dashboard must be deployed to model named `kubeflow`:"
