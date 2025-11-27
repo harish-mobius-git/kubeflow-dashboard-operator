@@ -120,7 +120,6 @@ class KubeflowDashboardOperator(CharmBase):
             self.on.upgrade_charm,
             self.on.config_changed,
             self.on["kubeflow-profiles"].relation_changed,
-            self.on["ingress"].relation_changed,
             self.ingress.on.ready,
             self.on.kubeflow_dashboard_pebble_ready,
         ]:
