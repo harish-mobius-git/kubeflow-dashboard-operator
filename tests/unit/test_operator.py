@@ -395,6 +395,29 @@ class TestSidebarLinks:
         ]
         assert actual_items == expected_sidebar_items_ordered
 
+    @patch("charm.KubernetesServicePatch", lambda x, y: None)
+    @patch("charm.KubeflowDashboardOperator.k8s_resource_handler")
+    def test_sidecar_and_ambient_relations_added(
+        self, k8s_resource_handler: MagicMock, harness: Harness
+    ):
+        """Test the charm is in BlockedStatus when both sidecar and ambient relations are added."""
+        # Arrange
+        harness.add_relation("ingress", "istio-pilot")
+
+        harness.add_relation("istio-ingress-route", "istio-ingress-k8s")
+
+        harness.set_leader(True)
+
+        # Act
+        harness.begin_with_initial_hooks()
+        harness.container_pebble_ready(harness.charm._container_name)
+
+        # Assert
+        assert isinstance(
+            harness.charm.model.unit.status,
+            BlockedStatus,
+        )
+
 
 def add_sidebar_relation(harness: Harness, other_app_name: str):
     """Adds a sidebar relation to a harness."""

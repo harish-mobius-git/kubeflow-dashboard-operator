@@ -294,7 +294,24 @@ class KubeflowDashboardOperator(CharmBase):
             ],
         )
 
-        self.ingress.submit_config(config)
+        if self.unit.is_leader():
+            self.ingress.submit_config(config)
+
+    def _check_istio_relations(self):
+        """Check that both ambient and sidecar relations are not present simultaneously."""
+        ambient_relation = self.model.get_relation("istio-ingress-route")
+        sidecar_relation = self.model.get_relation("ingress")
+
+        if ambient_relation and sidecar_relation:
+            self.logger.error(
+                "Both 'istio-ingress-route' and 'ingress' relations are present, "
+                "remove one to unblock."
+            )
+            raise CheckFailed(
+                "Cannot have both 'istio-ingress-route' and 'ingress' relations "
+                "at the same time.",
+                BlockedStatus,
+            )
 
     def _check_kf_profiles(self, interfaces):
         kf_profiles = interfaces["kubeflow-profiles"]
@@ -338,6 +355,7 @@ class KubeflowDashboardOperator(CharmBase):
             self._check_container_connection()
             self._check_model_name()
             self._check_leader()
+            self._check_istio_relations()
             interfaces = self._get_interfaces()
             kf_profiles_interface = self._check_kf_profiles(interfaces)
             self._handle_ingress(interfaces)
