@@ -110,7 +110,7 @@ class KubeflowDashboardOperator(CharmBase):
         self.service_patcher = KubernetesServicePatch(self, [port])
 
         # Ambient Mesh integration
-        self._mesh = ServiceMeshConsumer(self, policies=[])
+        self._mesh = ServiceMeshConsumer(self)
         self.ingress = IstioIngressRouteRequirer(self, relation_name="istio-ingress-route")
         self._ambient_mesh_ingress()
 
