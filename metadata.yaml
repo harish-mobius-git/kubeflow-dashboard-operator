@@ -18,7 +18,7 @@ resources:
     upstream-source: docker.io/charmedkubeflow/centraldashboard:1.10.0-e346d61
 provides:
   links:
-    interface: kubeflow_dashboard_links
+    interface: kubeflow_dashboard_links---
   metrics-endpoint:
     interface: prometheus_scrape
   grafana-dashboard:
